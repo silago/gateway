@@ -1,10 +1,31 @@
 {
   "version": "v1",
-  "port": "8081",
+  "port": "8082",
   "rules": {
-    "/entities": "127.0.0.1:8089",
-    "/entity-types": "127.0.0.1:8089",
-    "/history": "127.0.0.1:8089"
+    "/google":{
+        "service":"google.com",
+        "filters":[
+            "auth"   
+        ]
+    },
+    "/some":{
+        "service":"jsonplaceholder.typicode.com",
+        "filters":[
+            "auth"   
+        ]
+    },
+    "/fake":{
+        "service":"jsonplaceholder.typicode.com",
+        "filters":[]
+    },
+    "/entity-types":{
+        "service":"127.0.0.1:8089",
+        "filters":[]
+    },
+    "/history":{
+        "service":"127.0.0.1:8089",
+        "filters":[]
+    }
   },
   "not_found_error": {
     "code": 404,

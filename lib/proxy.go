@@ -5,28 +5,38 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+    "errors"
 )
 
-func backend(c *Config, r *http.Request) (string, string, bool) {
+// returns url, service, error
+func backend(c *Config, r *http.Request) (*Service, *string, error) {
 	var (
-		pathToMatch string
+		route string
+        query string
 	)
+
 	if c.Version != "" {
 		ps := strings.SplitN(r.URL.Path, "/", 3)
-		if len(ps) != 3 || strings.ToLower(ps[1]) != strings.ToLower(c.Version) {
-			return tryFallback(c, r) //expect URL of form /{version}/
-		}
-		pathToMatch = "/" + ps[2]
+        route = "/" + ps[1]
+        if (len(ps)>2) {
+            query=ps[2]
+        } else {
+            query=""
+        }
+
 	} else {
-		pathToMatch = r.URL.Path
+		route = r.URL.Path
 	}
-	for k, v := range c.Rules {
-		if strings.Index(pathToMatch, k) == 0 {
-			return v, pathToMatch, true
+
+    // compare path with each rule
+	for rule, service := range c.Rules {
+		if strings.Index(route, rule) == 0 {
+			return &service, &query, nil
 		}
 	}
-	return "", "", false
+	return nil, nil, errors.New("Route not found")
 }
+
 
 func tryFallback(c *Config, r *http.Request) (string, string, bool){
 	if c.Version != "" && c.FallbackRule != "" {
@@ -36,23 +46,41 @@ func tryFallback(c *Config, r *http.Request) (string, string, bool){
 }
 
 // New creates a new gateway.
-func New(c *Config) http.HandlerFunc {
+func New(c *Config, middlewares map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error) ) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		b, url, ok := backend(c, req)
-		if !ok {
+        var (
+            outRequest *http.Request
+        )
+        outRequest = req
+
+		service, query, err := backend(c, req)
+		if err!=nil {
 			resp, _ := json.Marshal(c.NotFoundResponse)
 			w.WriteHeader(http.StatusNotFound)
 			w.Header().Set("Content-type", "application/json")
 			w.Write(resp)
+            w.Write([]byte(err.Error()))
 			return
 		}
+
+        if (middlewares != nil)  {
+            for _, filterName := range service.Filters {
+               if md, ok := middlewares[filterName]; ok {
+                   request_out, err:= md(w, req ); 
+                   if (err != nil ) {
+                        outRequest = request_out
+                   }
+               }
+            }
+        }
+
 		(&httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
-				r.URL.Host = b
-				r.URL.Path = url
-				r.Host = b
+				r.URL.Host = service.Service
+				r.URL.Path = "/"+*query 
+				r.Host = service.Service
 			},
-		}).ServeHTTP(w, req)
+		}).ServeHTTP(w, outRequest)
 	}
 }
