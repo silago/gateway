@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-    "errors"
+    //"errors"
 
 	//"github.com/silago/gateway/lib"
 	"lib"
@@ -12,14 +12,16 @@ import (
 )
 
 
-func tokenAuth(res http.ResponseWriter, req *http.Request) ( *http.Request, error) {
-    //token:=req.URL.Query().Get("auth_token");
-    /* query to db end encodeToken */
-    if (false) {
-        return nil, errors.New("Auth token is not valid" );
+func ENV(name string) string {
+    result:=""
+    if s, ok := os.LookupEnv(name); ok {
+        result = s
+    } else {
+        log.Fatal("Could not get env var " +  name)
     }
-    return req, nil
+    return result
 }
+
 
 func main() {
 	var (
@@ -27,7 +29,8 @@ func main() {
 		port       string
 	)
 	middlewares := map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error) {
-        "auth": tokenAuth,
+        //"auth": TokenAuth,
+        "auth": NewAuthenticator(ENV("DB_DRIVER"),ENV("DB_HOST"),ENV("DB_USER"),ENV("DB_PASS"),ENV("DB_NAME"),ENV("DB_CHARSET")).TokenAuth,
     }
 
 	if len(os.Args) != 2 {
@@ -54,6 +57,11 @@ func main() {
 	} else {
 		port = c.Port
 	}
+
+    http.HandleFunc("/init/", func(w http.ResponseWriter, r *http.Request) {
+        r.ParseForm()
+        fmt.Fprintf(w, "Hello, %q")
+    })
 
 	http.HandleFunc("/", lib.New(c, middlewares))
 	log.Fatal(http.ListenAndServe(":"+port, nil))

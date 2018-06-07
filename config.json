@@ -1,0 +1,36 @@
+{
+  "version": "v1",
+  "port": "8082",
+  "rules": {
+    "/google":{
+        "service":"google.com",
+        "filters":[
+            "auth"   
+        ]
+    },
+    "/some":{
+        "service":"jsonplaceholder.typicode.com",
+        "filters":[
+            "auth"   
+        ]
+    },
+    "/fake":{
+        "service":"jsonplaceholder.typicode.com",
+        "filters":[]
+    },
+    "/entity-types":{
+        "service":"127.0.0.1:8089",
+        "filters":[]
+    },
+    "/history":{
+        "service":"127.0.0.1:8089",
+        "filters":[]
+    }
+  },
+  "not_found_error": {
+    "code": 404,
+    "domain": "Route not found",
+    "message": "The requested route was not found"
+  },
+  "fallback_rule": "www.openenergi.com"
+}

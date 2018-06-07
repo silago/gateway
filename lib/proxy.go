@@ -67,8 +67,14 @@ func New(c *Config, middlewares map[string]func(http.ResponseWriter, *http.Reque
             for _, filterName := range service.Filters {
                if md, ok := middlewares[filterName]; ok {
                    request_out, err:= md(w, req ); 
-                   if (err != nil ) {
+                   if (err == nil ) {
                         outRequest = request_out
+                   } else {
+                        // here we must stop everything
+                        w.WriteHeader(http.StatusNotFound)
+                        w.Header().Set("Content-type", "application/json")
+                        w.Write([]byte(err.Error()))
+                        return
                    }
                }
             }
