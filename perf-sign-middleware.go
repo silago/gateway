@@ -1,5 +1,5 @@
 package main
-/* this is a copy of perf/stark sign method  implemented in golang */
+/* it's a copy of perf/stark sign method for a backward compability  */
 import (
     "encoding/json"
     "fmt"    
@@ -85,51 +85,13 @@ func getSortedKeys(params map[string]interface{}) []string {
     return keys
 }
 
-
-/*(
-const input = `
-{
-    "suid":0,
-    "uid":0,
-    "aid":0,
-    "authKey":0,
-    "sessionKey":0,
-    "b":"b",
-    "a":"a",
-    "c":"c",
-    "e":"e",
-    "params": {
-        "id": 10,
-        "aa": 1,
-        "cc": 1,
-        "bb": 1
-    }
-}
-`
-
-func main() {
-    m := map[string]interface{}{}
-    err := json.Unmarshal([]byte(input), &m)
-    if err != nil {
-        panic(err)
-    }
-    m, err= prepareArray("foo","bar",m)
-    if (err!=nil) {
-        fmt.Print(err.Error())
-        return
-    } 
-    result:=calcArraySignMap(m)
-    fmt.Println(result)
-}
-*/
-
 func hashMd5(input string) string {
     hasher := md5.New()
     hasher.Write([]byte(input))
     return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func isSignValid( sign string , controller string, action string,  request_params map[string]string) bool {
+func isSignValid( sign string) bool {
     if (len(sign)!=32) {
         return false
     }
