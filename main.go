@@ -31,6 +31,7 @@ func main() {
 	middlewares := map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error) {
         //"auth": TokenAuth,
         "auth": NewAuthenticator(ENV("DB_DRIVER"),ENV("DB_HOST"),ENV("DB_USER"),ENV("DB_PASS"),ENV("DB_NAME"),ENV("DB_CHARSET")).TokenAuth,
+        "sign": SignCheck,
     }
 
 	if len(os.Args) != 2 {
