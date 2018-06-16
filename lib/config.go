@@ -8,11 +8,20 @@ import (
 type Service struct {
     Service string
     Filters []string
+    Pipes   []Pipe
 }
+
+type Pipe struct {
+    Service string
+    Endpoint string
+    Map map[string]string
+}
+
 
 type Config struct {
 	// Version is the version that should be prepended to the URL, e.g. /v1/users (in fact this could be a more general prefix)
 	Version string `json:"version"`
+	Scheme string `json:"scheme"`
 
 	// Port that the gateway should listen on.
 	Port string `json:"port"`
@@ -39,6 +48,7 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+    
 	return load(b)
 }
 

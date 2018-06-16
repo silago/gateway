@@ -5,11 +5,28 @@ import (
 	"net/http"
 	"os"
     //"errors"
-
 	//"github.com/silago/gateway/lib"
 	"lib"
     "fmt"
 )
+
+
+
+/* 
+        
+
+        for i in proxy {
+
+
+        }
+        
+        createProxy {
+            ModifyResponse {
+                next_proxy() 
+            }
+        }
+        
+*/
 
 
 func ENV(name string) string {
@@ -58,6 +75,8 @@ func main() {
 	} else {
 		port = c.Port
 	}
+
+    fmt.Println("",c)
 
     http.HandleFunc("/init/", func(w http.ResponseWriter, r *http.Request) {
         r.ParseForm()
