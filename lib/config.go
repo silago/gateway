@@ -22,7 +22,7 @@ type Config struct {
 	// Version is the version that should be prepended to the URL, e.g. /v1/users (in fact this could be a more general prefix)
 	Version string `json:"version"`
 	Scheme string `json:"scheme"`
-
+	Middleware map[string]string `json:"middleware"`
 	// Port that the gateway should listen on.
 	Port string `json:"port"`
 
@@ -43,7 +43,7 @@ type Config struct {
 }
 
 // Load loads a configuration file and parses it into a Config struct.
-func Load(path string) (*Config, error) {
+func LoadConfig(path string) (*Config, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err

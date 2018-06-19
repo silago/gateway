@@ -2,6 +2,10 @@
   "version": "v1",
   "port": "8082",
   "scheme":"http",
+  "middleware":{
+    "auth":"./plugins/token.so",
+    "sign":"./plugins/sign.so"
+  },
   "rules": {
     "/rating/getpage/":{
         "pipes":[
@@ -17,28 +21,20 @@
             }
         ]
     },
-    "/test/combine":{
-        "pipes":[
-            {
-                "service":"users",
-                "endpoint":"friends",
-                "map":{"friends":"ids"}
-            },
-            {
-                "service":"chests",
-                "endpoint":"unpack",
-                "map":{}
-            }
-        ]
+    "/rating":{
+        "service":"rating",
+        "filters":[
+        ],
+        "pipes":[]
     },
     "/chests":{
-        "service":"localhost:8090",
+        "service":"chests",
         "filters":[
         ],
         "pipes":[]
     },
     "/users":{
-        "service":"localhost:8084",
+        "service":"users",
         "filters":[
         ],
         "pipes":[]
@@ -47,54 +43,6 @@
         "service":"jsonplaceholder.typicode.com",
         "filters":[
         ],
-        "pipes":[]
-    },
-    "/bar":{
-        "service":"jsonplaceholder.typicode.com",
-        "filters":[
-        ],
-        "pipes":[]
-    },
-    "/jsonplaceholder":{
-        "service":"jsonplaceholder.typicode.com",
-        "filters":[
-        ],
-        "pipes":[]
-    },
-    "/google":{
-        "service":"google.com",
-        "filters":[
-            "auth"   
-        ],
-        "pipes":[]
-    },
-    "/sign":{
-        "service":"jsonplaceholder.typicode.com",
-        "filters":[
-            "sign"   
-        ],
-        "pipes":[]
-    },
-    "/some":{
-        "service":"jsonplaceholder.typicode.com",
-        "filters":[
-            "auth"   
-        ],
-        "pipes":[]
-    },
-    "/fake":{
-        "service":"jsonplaceholder.typicode.com",
-        "filters":[],
-        "pipes":[]
-    },
-    "/entity-types":{
-        "service":"127.0.0.1:8089",
-        "filters":[],
-        "pipes":[]
-    },
-    "/history":{
-        "service":"127.0.0.1:8089",
-        "filters":[],
         "pipes":[]
     },
     "/rating":{

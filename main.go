@@ -2,32 +2,12 @@ package main
 
 import (
 	"log"
+	"errors"
+	"plugin"
 	"net/http"
 	"os"
-    //"errors"
-	//"github.com/silago/gateway/lib"
-	"lib"
-    "fmt"
+    . "gateway/lib"
 )
-
-
-
-/* 
-        
-
-        for i in proxy {
-
-
-        }
-        
-        createProxy {
-            ModifyResponse {
-                next_proxy() 
-            }
-        }
-        
-*/
-
 
 func ENV(name string) string {
     result:=""
@@ -39,18 +19,34 @@ func ENV(name string) string {
     return result
 }
 
+type MiddlewarePlugin interface {
+    Init() func( http.ResponseWriter, *http.Request ) ( *http.Request, error ) 
+}
+
+func LoadPlugin(path string) ( MiddlewarePlugin, error ) {
+    mod, err:=plugin.Open(path)
+    if err!=nil {
+         return nil, err
+    }
+    
+    plug, err:= mod.Lookup("Plugin")
+    if (err!=nil) {
+        return nil, err
+    }
+    plugin, ok := plug.(MiddlewarePlugin)
+    if (!ok) {
+       errors.New("Could not cast to Middleware plugin") 
+    }
+    return plugin, nil
+}
 
 func main() {
 	var (
 		configPath string
 		port       string
 	)
-	middlewares := map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error) {
-        //"auth": TokenAuth,
-        "auth": NewAuthenticator(ENV("DB_DRIVER"),ENV("DB_HOST"),ENV("DB_USER"),ENV("DB_PASS"),ENV("DB_NAME"),ENV("DB_CHARSET")).TokenAuth,
-        "sign": SignCheck,
-    }
 
+	middlewares := make(map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error))
 	if len(os.Args) != 2 {
 		if s, ok := os.LookupEnv("GATEWAY_CONFIG_FILE"); ok {
 			configPath = s
@@ -61,10 +57,17 @@ func main() {
 		configPath = os.Args[1]
 	}
 
-	c, err := lib.Load(configPath)
+	c, err := LoadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+    for plugin_name, plugin_path:= range c.Middleware {
+        plugin, err:=LoadPlugin(plugin_path)
+        if err==nil {
+            middlewares[plugin_name]=plugin.Init()
+        }        
+    }
 
 	if c.Port == "" {
 		p, ok := os.LookupEnv("HTTP_PLATFORM_PORT")
@@ -76,13 +79,10 @@ func main() {
 		port = c.Port
 	}
 
-    fmt.Println("",c)
-
     http.HandleFunc("/init/", func(w http.ResponseWriter, r *http.Request) {
         r.ParseForm()
-        fmt.Fprintf(w, "Hello, %q")
     })
 
-	http.HandleFunc("/", lib.New(c, middlewares))
+	http.HandleFunc("/", New(c, middlewares))
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
