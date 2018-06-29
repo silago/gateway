@@ -79,10 +79,6 @@ func main() {
 		port = c.Port
 	}
 
-    http.HandleFunc("/init/", func(w http.ResponseWriter, r *http.Request) {
-        r.ParseForm()
-    })
-
 	http.HandleFunc("/", New(c, middlewares))
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

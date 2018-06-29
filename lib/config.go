@@ -8,7 +8,13 @@ import (
 type Service struct {
     Service string
     Filters []string
+    Aggregate   map[string]AggregatePipe
     Pipes   []Pipe
+}
+
+type AggregatePipe struct {
+    Service string
+    Endpoint string
 }
 
 type Pipe struct {

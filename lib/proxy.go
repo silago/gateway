@@ -3,13 +3,18 @@ package lib
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
+	//"net/url"
 	"io/ioutil"
 	"net/http/httputil"
 	"strings"
     "errors"
     "fmt"
 )
+
+
+
+
+
 
 // Find service matches by the url pattern
 // returns url, service, error
@@ -48,14 +53,7 @@ func tryFallback(c *Config, r *http.Request) (string, string, bool){
 }
 
 
-type Pipeline struct {
-    Index int
-    Pipes []Pipe
-}
 
-func (p *Pipeline) Reset () {
-    p.Index = 0
-}
 
 
 func defaultMod (res *http.Response) error {
@@ -65,71 +63,6 @@ func defaultMod (res *http.Response) error {
     return nil
 }
 
-func (p *Pipeline) BuildProxyPipe(writer http.ResponseWriter, c *Config, req *http.Request) {
-    if (len(p.Pipes)==0) {
-        return
-    }
-
-    currentPipe:= p.Pipes[p.Index]
-    fmt.Println("response for ", currentPipe.Service)
-    (&httputil.ReverseProxy{
-        Director: func(r *http.Request) {
-            r.URL.Scheme = c.Scheme//"http"
-            r.URL.Host   = req.Host 
-            r.URL.Path   = "/" + currentPipe.Service + "/" + currentPipe.Endpoint//"/"+path//"/foo" 
-            r.Host = req.Host 
-        },
-        ModifyResponse: p.BuildNextProxyPipe(writer, c, req) ,
-    }).ServeHTTP(writer, req)
-}
-
-
-func generateResponseMap(pipe Pipe, req *http.Request, res *http.Response) map[string]string {
-    result:=make(map[string]string)
-	var obj map[string]*json.RawMessage
-    bodyBytes, _ := ioutil.ReadAll(res.Body)
-    str := string(bodyBytes)
-    json.Unmarshal([]byte(str), &obj)
-
-    for name, value := range pipe.Map {
-        if val, ok := obj[name]; ok { 
-            bytes, _:= json.Marshal(val) 
-            result["foo"]="bar"
-            result[value]=string(bytes)
-        }
-    } 
-    return result
-}
-
-func (p *Pipeline) BuildNextProxyPipe(writer http.ResponseWriter,c *Config, req *http.Request) func (*http.Response) error {
-    p.Index++
-    if (p.Index>=len(p.Pipes)) {
-        return nil
-    }
-    currentPipe:=  p.Pipes[p.Index]
-    previousPipe:= p.Pipes[p.Index-1]
-    return func(res *http.Response) error { 
-        (&httputil.ReverseProxy{
-            Director: func(r *http.Request) {
-                form, _:= url.ParseQuery(req.URL.RawQuery)
-                urlvalues := generateResponseMap(previousPipe, r, res)
-                for x := range urlvalues  {
-                    form.Add(x,urlvalues[x])
-                }
-                
-                //form.Add("boo", "far")
-                r.URL.RawQuery = form.Encode()
-
-                r.URL.Scheme = c.Scheme//"http"
-                r.URL.Host   = req.Host 
-                r.URL.Path   = "/" + currentPipe.Service + "/" + currentPipe.Endpoint//"/"+path//"/foo" 
-                r.Host = req.Host 
-            },
-            ModifyResponse: p.BuildNextProxyPipe(writer, c, req) ,
-        }).ServeHTTP(writer, req)
-        return nil
-    }
-}
 
 
 // New creates a new gateway.
@@ -161,11 +94,22 @@ func New(c *Config, middlewares map[string] func(http.ResponseWriter, *http.Requ
                }
             }
         }
+        fmt.Printf("one")
+        fmt.Printf("",service) 
+        fmt.Printf("",service.Aggregate) 
+        if (len(service.Aggregate)!=0) {
+            fmt.Printf("Hanndle aggregation")
+            handleAggregate(w, req, service.Aggregate)
+            return;
+        }
+        fmt.Printf("two")
+
         if (len(service.Pipes)!=0) {
             pipeline:=Pipeline{Index:0, Pipes:service.Pipes}
             pipeline.BuildProxyPipe(w, c, req)
             return
         }
+        fmt.Printf("three")
 
         if (service.Service!="") {
             (&httputil.ReverseProxy{
