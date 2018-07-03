@@ -7,7 +7,7 @@
     "sign":"./plugins/sign.so"
   },
   "rules": {
-    "/init":{
+    "/game/init":{
         "filters":[
         ],
         "aggregate":{
@@ -44,7 +44,7 @@
                 "Endpoint":"/init"
             },
             "Chests":{
-                "Service":"chests-service",
+                "Service":"chest-service",
                 "Endpoint":"/init"
             },
             "Offers":{
@@ -58,7 +58,7 @@
         }
     },
     "/auth":{
-        "service":"auth",
+        "service":"auth-service",
         "filters":[
         ]
     }
