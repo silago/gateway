@@ -94,24 +94,21 @@ func New(c *Config, middlewares map[string] func(http.ResponseWriter, *http.Requ
                }
             }
         }
-        fmt.Printf("one")
-        fmt.Printf("",service) 
-        fmt.Printf("",service.Aggregate) 
         if (len(service.Aggregate)!=0) {
             fmt.Printf("Hanndle aggregation")
             handleAggregate(w, req, service.Aggregate)
-            return;
+            return
         }
-        fmt.Printf("two")
 
         if (len(service.Pipes)!=0) {
+            fmt.Printf("Pipes aggregation")
             pipeline:=Pipeline{Index:0, Pipes:service.Pipes}
             pipeline.BuildProxyPipe(w, c, req)
             return
         }
-        fmt.Printf("three")
 
         if (service.Service!="") {
+            fmt.Printf("default handle")
             (&httputil.ReverseProxy{
                 Director: func(r *http.Request) {
                     r.URL.Scheme = c.Scheme//"http"
@@ -120,6 +117,7 @@ func New(c *Config, middlewares map[string] func(http.ResponseWriter, *http.Requ
                     r.Host = service.Service
                 },
             }).ServeHTTP(w, req)
+            return
         }
 	}
 }

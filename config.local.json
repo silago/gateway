@@ -1,6 +1,6 @@
 {
   "version": "v1",
-  "port": "8082",
+  "port": "9000",
   "scheme":"http",
   "middleware":{
     "auth":"./plugins/token.so",
@@ -10,9 +10,13 @@
     "/test/data":{
         "filters":[],
         "aggregate":{
-            "posts":{
+            "data.user.posts":{
                 "Service":"jsonplaceholder.typicode.com",
-                "Endpoint":"/posts"
+                "Endpoint":"/posts/1"
+            },
+            "data.user.users":{
+                "Service":"jsonplaceholder.typicode.com",
+                "Endpoint":"/users/1"
             }
         }
     },
@@ -22,10 +26,6 @@
         "aggregate":{
             "version":{
                 "Service":"version-service",
-                "Endpoint":"/init"
-            },
-            "Gameplay":{
-                "Service":"gameplay-service",
                 "Endpoint":"/init"
             },
             "GeneralData":{
