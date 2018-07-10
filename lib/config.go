@@ -4,17 +4,25 @@ import (
 	"encoding/json"
 	"io/ioutil"
 )
+
 // Config is a struct that holds the configuration of the gateway.
 type Service struct {
     Service string
     Filters []string
-    Aggregate   map[string]AggregatePipe
+    Aggregate map[string]AggregatePipe
+    Chain   []Chain
     Pipes   []Pipe
 }
 
 type AggregatePipe struct {
     Service string
     Endpoint string
+    Mapping  map[string]string
+}
+
+type Chain struct {
+     Service string
+     Endpoint string
 }
 
 type Pipe struct {

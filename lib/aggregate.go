@@ -46,7 +46,6 @@ func handleAggregate(w http.ResponseWriter, req *http.Request, pipes map[string]
         currentObject:=gabs.New()
         currentObject.SetP(obj,index)
         results[index]=currentObject
-        fmt.Println(currentObject.String())
         defer resp.Body.Close()
     } 
     

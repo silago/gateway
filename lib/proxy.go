@@ -94,6 +94,18 @@ func New(c *Config, middlewares map[string] func(http.ResponseWriter, *http.Requ
                }
             }
         }
+
+        if (len(service.Chain)!=0) {
+            fmt.Printf("Hanndle chain")
+            err:= handleChain(w, req, service.Chain)
+            if (err!=nil) {
+                w.WriteHeader(http.StatusConflict)
+                w.Header().Set("Content-type", "application/json")
+                w.Write([]byte(err.Error()))
+            }
+            return
+        }
+
         if (len(service.Aggregate)!=0) {
             fmt.Printf("Hanndle aggregation")
             handleAggregate(w, req, service.Aggregate)

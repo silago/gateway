@@ -7,6 +7,49 @@
     "sign":"./plugins/sign.so"
   },
   "rules": {
+    "/levels":{
+        "service":"auth-service",
+        "filters":[
+        ]
+    },
+    "/levels/test":{
+        "filters":[
+            "auth"
+        ],
+        "chain":[
+            {
+                "Service":"jsonplaceholder.typicode.com",
+                "Endpoint":"/posts/1",
+                "Mapping":{
+                    "*":"*"
+                }
+            },
+            {
+                "Service":"jsonplaceholder.typicode.com",
+                "Endpoint":"/users/1",
+                "Mapping":{
+                    "*":"*"
+                }
+            }
+        ]
+    },
+    "/levels/end":{
+        "filters":[ "auth" , "sign" ],
+        "chain":  [
+                     { "Service":"levels-service",    "Endpoint":"/" }
+                  ]
+    },
+    "/levels/break":{
+
+
+    },
+    "/levels/start":{
+        "filters":[ "auth" ],
+        "chain":  [
+                     { "Service":"inventory-service", "Endpoint":"/use" }, 
+                     { "Service":"levels-service",    "Endpoint":"/start" }
+                  ]
+    },
     "/test/data":{
         "filters":[],
         "aggregate":{
