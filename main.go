@@ -1,52 +1,54 @@
 package main
 
 import (
-	"log"
 	"errors"
-	"plugin"
+	"fmt"
+	lib "gateway/lib"
+	"log"
 	"net/http"
 	"os"
-    . "gateway/lib"
+	"plugin"
 )
 
 func ENV(name string) string {
-    result:=""
-    if s, ok := os.LookupEnv(name); ok {
-        result = s
-    } else {
-        log.Fatal("Could not get env var " +  name)
-    }
-    return result
+	result := ""
+	if s, ok := os.LookupEnv(name); ok {
+		result = s
+	} else {
+		log.Fatal("Could not get env var " + name)
+	}
+	return result
 }
 
 type MiddlewarePlugin interface {
-    Init() func( http.ResponseWriter, *http.Request ) ( *http.Request, error ) 
+	Init() func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
 }
 
-func LoadPlugin(path string) ( MiddlewarePlugin, error ) {
-    mod, err:=plugin.Open(path)
-    if err!=nil {
-         return nil, err
-    }
-    
-    plug, err:= mod.Lookup("Plugin")
-    if (err!=nil) {
-        return nil, err
-    }
-    plugin, ok := plug.(MiddlewarePlugin)
-    if (!ok) {
-       errors.New("Could not cast to Middleware plugin") 
-    }
-    return plugin, nil
+func LoadPlugin(path string) (MiddlewarePlugin, error) {
+	mod, err := plugin.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	plug, err := mod.Lookup("Plugin")
+	if err != nil {
+		return nil, err
+	}
+	plugin, ok := plug.(MiddlewarePlugin)
+	if !ok {
+		fmt.Println("Could not cast to Middleware plugin")
+		errors.New("Could not cast to Middleware plugin")
+	}
+	return plugin, nil
 }
 
 func main() {
 	var (
 		configPath string
-		port       string
 	)
-
-	middlewares := make(map[string]func(http.ResponseWriter, *http.Request) ( *http.Request , error))
+	port := ENV("PORT")
+	middlewares := make(map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error))
+	//      func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error))
 	if len(os.Args) != 2 {
 		if s, ok := os.LookupEnv("GATEWAY_CONFIG_FILE"); ok {
 			configPath = s
@@ -57,28 +59,21 @@ func main() {
 		configPath = os.Args[1]
 	}
 
-	c, err := LoadConfig(configPath)
+	c, err := lib.LoadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-    for plugin_name, plugin_path:= range c.Middleware {
-        plugin, err:=LoadPlugin(plugin_path)
-        if err==nil {
-            middlewares[plugin_name]=plugin.Init()
-        }        
-    }
-
-	if c.Port == "" {
-		p, ok := os.LookupEnv("HTTP_PLATFORM_PORT")
-		if !ok {
-			log.Fatal("Config file should specify port, or the HTTP_PLATFORM_PORT environment variable must be set.")
+	for plugin_name, plugin_path := range c.Middleware {
+		plugin, err := LoadPlugin(plugin_path)
+		if err == nil {
+			middlewares[plugin_name] = plugin.Init()
+		} else {
+			fmt.Println("cant load plugin", plugin_path)
+			fmt.Println(err)
 		}
-		port = p
-	} else {
-		port = c.Port
 	}
 
-	http.HandleFunc("/", New(c, middlewares))
+	http.HandleFunc("/", lib.New(c, middlewares))
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

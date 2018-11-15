@@ -1,8 +1,15 @@
-FROM golang:1.8
-WORKDIR /go/src/gateway
-COPY . . 
-RUN go-wrapper download
-RUN go-wrapper install
-#CMD ["/go/src/app/main"]
-#EXPOSE 3000
-ENTRYPOINT ["go-wrapper", "run","./config.json"]
+FROM golang:1.10
+RUN mkdir /go/src/gateway -p
+ADD . /go/src/gateway/
+WORKDIR /go/src/gateway 
+#RUN go get "gateway/lib"
+#RUN go get "github.com/rs/xid"
+RUN go get "github.com/Jeffail/gabs"
+#RUN cp -r ./lib /go/src/gateway/lib 
+RUN go get "github.com/jinzhu/gorm"
+RUN go get "github.com/go-sql-driver/mysql"
+RUN go build -o pool-api-gateway .
+RUN pwd
+RUN ls
+
+ENTRYPOINT ["/go/src/gateway/pool-api-gateway", "pool.config.json"]

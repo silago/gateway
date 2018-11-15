@@ -1,135 +1,72 @@
 package lib
 
 import (
-	"encoding/json"
+	"errors"
+	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
-	//"net/url"
-	"io/ioutil"
-	"net/http/httputil"
 	"strings"
-    "errors"
-    "fmt"
 )
 
-
-
-
-
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
 // Find service matches by the url pattern
 // returns url, service, error
 func backend(c *Config, r *http.Request) (*Service, *string, error) {
 	var (
 		route string
-        query string
+		query string
 	)
 
-    ps := strings.Split(r.URL.Path, "/")
-    fmt.Println("ps: ", ps)
-    // compare path with each rule
+	ps := strings.Split(r.URL.Path, "/")
+	// compare path with each rule
 	for rule, service := range c.Rules {
-        route="/"
-        for index, part:= range ps {
-            if (part == "") {
-                continue
-            }          
-            route+= part + "/"
+		route = "/"
+		for index, part := range ps {
+			if part == "" {
+				continue
+			}
+			route += part + "/"
 
-            if strings.Index(route, rule) == 0 {
-                query=strings.Join(ps[index+1:],"/")
-                return &service, &query, nil
-            }
-        }
+			if strings.Index(route, rule) == 0 {
+				query = strings.Join(ps[index+1:], "/")
+				return &service, &query, nil
+			}
+		}
 	}
-	return nil, nil, errors.New("Route not found")
+	return nil, nil, errors.New("Route not found!!!!")
 }
 
-
-func tryFallback(c *Config, r *http.Request) (string, string, bool){
+func tryFallback(c *Config, r *http.Request) (string, string, bool) {
 	if c.Version != "" && c.FallbackRule != "" {
 		return c.FallbackRule, r.URL.Path, true
 	}
 	return "", "", false
 }
 
-
-
-
-
-func defaultMod (res *http.Response) error {
-    bodyBytes, _ := ioutil.ReadAll(res.Body)
-    bodyString := string(bodyBytes)
-    fmt.Println("default response", bodyString)
-    return nil
-}
-
-
-
-// New creates a new gateway.
-func New(c *Config, middlewares map[string] func(http.ResponseWriter, *http.Request) ( *http.Request , error) ) http.HandlerFunc {
+func New(c *Config, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-        fmt.Println("Some input request got: ",req.Host, req.URL)
-		service, query, err := backend(c, req)
-		if err!=nil {
-			resp, _ := json.Marshal(c.NotFoundResponse)
-			w.WriteHeader(http.StatusNotFound)
-			w.Header().Set("Content-type", "application/json")
-			w.Write(resp)
-            w.Write([]byte(err.Error()))
-			return
+		service, query, route_error := backend(c, req)
+		if route_error == nil {
+			switch proto := service.Protocol; proto {
+			case "ws":
+				err := wsProxy(w, req, service, query, middlewares)
+				if err != nil {
+					log.Println(" ws proxy error: ", err)
+				}
+
+			default:
+				err := httpProxy(w, req, service, query, middlewares)
+				log.Println(" http proxy error: ", err)
+			}
+		} else {
+			tryFallback(c, req)
 		}
-        if (middlewares != nil) {
-            for _, filterName := range service.Filters {
-               if md, ok := middlewares[filterName]; ok {
-                   request_out, err:= md(w, req ); 
-                   if (err == nil ) {
-                        req = request_out
-                   } else {
-                        // here we must stop everything
-                        w.WriteHeader(http.StatusNotFound)
-                        w.Header().Set("Content-type", "application/json")
-                        w.Write([]byte(err.Error()))
-                        return
-                   }
-               }
-            }
-        }
-
-        if (len(service.Chain)!=0) {
-            fmt.Printf("Hanndle chain")
-            err:= handleChain(w, req, service.Chain)
-            if (err!=nil) {
-                w.WriteHeader(http.StatusConflict)
-                w.Header().Set("Content-type", "application/json")
-                w.Write([]byte(err.Error()))
-            }
-            return
-        }
-
-        if (len(service.Aggregate)!=0) {
-            fmt.Printf("Hanndle aggregation")
-            handleAggregate(w, req, service.Aggregate)
-            return
-        }
-
-        if (len(service.Pipes)!=0) {
-            fmt.Printf("Pipes aggregation")
-            pipeline:=Pipeline{Index:0, Pipes:service.Pipes}
-            pipeline.BuildProxyPipe(w, c, req)
-            return
-        }
-
-        if (service.Service!="") {
-            fmt.Printf("default handle")
-            (&httputil.ReverseProxy{
-                Director: func(r *http.Request) {
-                    r.URL.Scheme = c.Scheme//"http"
-                    r.URL.Host = service.Service
-                    r.URL.Path = "/"+*query 
-                    r.Host = service.Service
-                },
-            }).ServeHTTP(w, req)
-            return
-        }
 	}
 }
