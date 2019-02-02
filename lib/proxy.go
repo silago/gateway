@@ -2,6 +2,7 @@ package lib
 
 import (
 	"errors"
+	//"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -40,7 +41,7 @@ func backend(c *Config, r *http.Request) (*Service, *string, error) {
 			}
 		}
 	}
-	return nil, nil, errors.New("Route not found!!!!")
+	return nil, nil, errors.New("{\"error\":\"route not found\"}")
 }
 
 func tryFallback(c *Config, r *http.Request) (string, string, bool) {
@@ -56,17 +57,19 @@ func New(c *Config, middlewares map[string]func(*http.Request, func(*http.Reques
 		if route_error == nil {
 			switch proto := service.Protocol; proto {
 			case "ws":
-				err := wsProxy(w, req, service, query, middlewares)
-				if err != nil {
-					log.Println(" ws proxy error: ", err)
+				if err := wsProxy(w, req, service, query, middlewares); err!=nil {
+                    log.Println("[error][websocket]:", err.Error())
+                    w.Write([]byte(err.Error()))
 				}
-
 			default:
-				err := httpProxy(w, req, service, query, middlewares)
-				log.Println(" http proxy error: ", err)
+				if err := httpProxy(w, req, service, query, middlewares); err!=nil {
+					log.Println("[error][proxy]: ", err.Error())
+                    w.Write([]byte(err.Error()))
+				}
 			}
 		} else {
-			tryFallback(c, req)
+			w.Write([]byte("{\"error\":\"page not found\"}"))
+			//tryFallback(c, req)
 		}
 	}
 }
