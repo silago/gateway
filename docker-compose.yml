@@ -1,0 +1,11 @@
+version: "2"
+
+services:
+  gateway:
+    image: 072388890876.dkr.ecr.eu-central-1.amazonaws.com/pool-gateway-api:latest
+    environment:
+     - PORT=8001
+     - SSL_PORT=8002
+    ports:
+      - "80:8001"
+      - "433:8002"
