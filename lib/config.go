@@ -36,6 +36,7 @@ type Pipe struct {
 type Config struct {
 	Version          string             `json:"version"`
 	Scheme           string             `json:"scheme"`
+	PortForward		 map[string]string 	`json:"port_forward"`
 	Middleware       map[string]string  `json:"middleware"`
 	Rules            map[string]Service `json:"rules"`
 	NotFoundResponse interface{}        `json:"not_found_error"`
