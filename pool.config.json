@@ -1,0 +1,77 @@
+{
+  "version": "v1",
+  "port": "8084",
+  "scheme":"http",
+  "port_forward": {
+    ":8010": "msghub.default.svc.cluster.local:9092"
+  },
+  "rules": {
+    "/9.0/":{
+      "service":"php-pool-production.default.svc.cluster.local",
+      "plugins":[],
+      "protocol": "",
+      "scheme": "http"
+    },
+    "/rc-game/":{
+      "service":"php-pool-rc.default.svc.cluster.local",
+      "plugins":[],
+      "protocol": "",
+      "scheme": "http"
+    },
+    "/vk-rc-game/":{
+        "service":"php-pool-vk-rc.default.svc.cluster.local",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
+    },
+    "/message":{
+        "service":"msghub.default.svc.cluster.local:9093",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
+    },
+    "/ws":{
+        "service":"msghub.default.svc.cluster.local:9093",
+        "plugins":[],
+        "protocol": "ws",
+        "scheme": ""
+    },
+    "/game":{
+        "service":"php-pool.default.svc.cluster.local",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
+    },
+    "/rate":{
+        "service":"influxdb.influxdb.rancher.internal:8086",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
+    },
+    "/adds":{
+        "protocol":"http",
+        "service":"poolq-appodeal",
+        "plugins":[],
+        "scheme": "http",
+        "protocol": ""
+    },
+    "/appodeal":{
+        "service":"poolq-appodeal",
+        "plugins":[],
+        "scheme": "http",
+        "protocol": ""
+    },
+    "/placeholder":{
+        "service":"jsonplaceholder.typicode.com:80",
+        "plugins":[],
+        "scheme": "http",
+        "protocol": ""
+    }
+  },
+  "not_found_error": {
+    "code": 404,
+    "domain": "Route not found",
+    "message": "The requested route was not found"
+  },
+  "fallback_rule": "www.openenergi.com"
+}
