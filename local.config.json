@@ -3,7 +3,7 @@
   "port": "8084",
   "scheme":"http",
   "port_forward": {
-    ":9099": "msghub.default.svc.cluster.local:9092"
+    ":9099": "0.0.0.0:9092"
   },
   "rules": {
     "/vk-rc-game/":{
