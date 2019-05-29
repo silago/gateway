@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
@@ -9,8 +10,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func socketProxy(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
@@ -54,12 +57,13 @@ func socketProxy(w http.ResponseWriter, req *http.Request, service *Service, que
 				return
 			}
 
-			defer conn.Close()
-			defer service_conn.Close()
-
-			error_chan := make(chan error)
-			client_chan := make(chan msg)
-			service_chan := make(chan msg)
+			defer func() {
+				conn.Close()
+				service_conn.Close()
+			}()
+			errorChan := make(chan error)
+			clientChan := make(chan msg)
+			serviceChan := make(chan msg)
 
 			go func() {
 				for {
@@ -67,9 +71,9 @@ func socketProxy(w http.ResponseWriter, req *http.Request, service *Service, que
 					default:
 						messageType, message, err := conn.ReadMessage()
 						if err == nil {
-							service_chan <- msg{Message: message, Type: messageType}
+							serviceChan <- msg{Message: message, Type: messageType}
 						} else {
-							error_chan <- err
+							errorChan <- err
 						}
 					}
 				}
@@ -81,9 +85,9 @@ func socketProxy(w http.ResponseWriter, req *http.Request, service *Service, que
 					default:
 						messageType, message, err := service_conn.ReadMessage()
 						if err == nil {
-							client_chan <- msg{Message: message, Type: messageType}
+							clientChan <- msg{Message: message, Type: messageType}
 						} else {
-							error_chan <- err
+							errorChan <- err
 						}
 					}
 				}
@@ -91,17 +95,17 @@ func socketProxy(w http.ResponseWriter, req *http.Request, service *Service, que
 
 			for {
 				select {
-				case message := <-client_chan:
+				case message := <-clientChan:
 					write_error := conn.WriteMessage(message.Type, message.Message)
 					if write_error != nil {
-						error_chan <- write_error
+						errorChan <- write_error
 					}
-				case message := <-service_chan:
+				case message := <-serviceChan:
 					write_error := service_conn.WriteMessage(message.Type, message.Message)
 					if write_error != nil {
-						error_chan <- write_error
+						errorChan <- write_error
 					}
-				case err := <-error_chan:
+				case err := <-errorChan:
 					log.Println("ws error: ", err)
 					return
 				}
@@ -156,12 +160,14 @@ func wsProxy(w http.ResponseWriter, req *http.Request, service *Service, query *
 				return
 			}
 
-			defer conn.Close()
-			defer service_conn.Close()
+			defer func() {
+				_ = conn.Close()
+				_ = service_conn.Close()
+			}()
 
-			error_chan := make(chan error)
-			client_chan := make(chan msg)
-			service_chan := make(chan msg)
+			errorChan := make(chan error)
+			clientChan := make(chan msg)
+			serviceChan := make(chan msg)
 
 			go func() {
 				for {
@@ -169,9 +175,9 @@ func wsProxy(w http.ResponseWriter, req *http.Request, service *Service, query *
 					default:
 						messageType, message, err := conn.ReadMessage()
 						if err == nil {
-							service_chan <- msg{Message: message, Type: messageType}
+							serviceChan <- msg{Message: message, Type: messageType}
 						} else {
-							error_chan <- err
+							errorChan <- err
 						}
 					}
 				}
@@ -183,9 +189,9 @@ func wsProxy(w http.ResponseWriter, req *http.Request, service *Service, query *
 					default:
 						messageType, message, err := service_conn.ReadMessage()
 						if err == nil {
-							client_chan <- msg{Message: message, Type: messageType}
+							clientChan <- msg{Message: message, Type: messageType}
 						} else {
-							error_chan <- err
+							errorChan <- err
 						}
 					}
 				}
@@ -193,17 +199,17 @@ func wsProxy(w http.ResponseWriter, req *http.Request, service *Service, query *
 
 			for {
 				select {
-				case message := <-client_chan:
-					write_error := conn.WriteMessage(message.Type, message.Message)
-					if write_error != nil {
-						error_chan <- write_error
+				case message := <-clientChan:
+					writeError := conn.WriteMessage(message.Type, message.Message)
+					if writeError != nil {
+						errorChan <- writeError
 					}
-				case message := <-service_chan:
-					write_error := service_conn.WriteMessage(message.Type, message.Message)
-					if write_error != nil {
-						error_chan <- write_error
+				case message := <-serviceChan:
+					writeError := service_conn.WriteMessage(message.Type, message.Message)
+					if writeError != nil {
+						errorChan <- writeError
 					}
-				case err := <-error_chan:
+				case err := <-errorChan:
 					log.Println("ws error: ", err)
 					return
 				}
@@ -216,8 +222,9 @@ func wsProxy(w http.ResponseWriter, req *http.Request, service *Service, query *
 	}
 }
 
-func httpProxy(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
-	handler := func(req *http.Request) (*http.Response, error) {
+const criticalResponseTime float64 = 0.4
+func getDefaultHandler   (service *Service, query *string) func (req *http.Request) (*http.Response, error) {
+	return func(req *http.Request) (response *http.Response, e error) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
@@ -226,9 +233,9 @@ func httpProxy(w http.ResponseWriter, req *http.Request, service *Service, query
 		req.Body = ioutil.NopCloser(bytes.NewReader(body))
 		url := fmt.Sprintf("%s://%s/%s", service.Scheme, service.Service, *query)
 		proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
-        if ( err!=nil ) {
-            return nil, err
-        }
+		if err!=nil {
+			return nil, err
+		}
 		proxyReq.Header = make(http.Header)
 		proxyReq.URL.RawQuery = req.URL.RawQuery
 
@@ -236,37 +243,77 @@ func httpProxy(w http.ResponseWriter, req *http.Request, service *Service, query
 			proxyReq.Header[h] = val
 		}
 
-		httpClient := http.Client{}
-		resp, err := httpClient.Do(proxyReq)
-		if err != nil {
-			return nil, err
+		//httpClient := http.Client{}
+
+		//resp, err := httpClient.Do(proxyReq)
+
+		var start, connect, dns, tlsHandshake time.Time
+		var logs map[string]string = make(map[string]string)
+
+		trace := &httptrace.ClientTrace{
+			DNSStart: func(dsi httptrace.DNSStartInfo) { dns = time.Now() },
+			DNSDone: func(ddi httptrace.DNSDoneInfo) {
+				logs["dnsdone"] = fmt.Sprintf("DNS Done: %v", time.Since(dns).Seconds())
+			},
+
+			TLSHandshakeStart: func() { tlsHandshake = time.Now() },
+			TLSHandshakeDone: func(cs tls.ConnectionState, err error) {
+				logs["handshake"]=fmt.Sprintf("TLS Handshake: %v", time.Since(tlsHandshake).Seconds())
+			},
+
+			ConnectStart: func(network, addr string) { connect = time.Now() },
+			ConnectDone: func(network, addr string, err error) {
+				logs["connectTime"]=fmt.Sprintf("Connect time: %v", time.Since(connect).Seconds())
+			},
+			GotFirstResponseByte: func() {
+				logs["starttofirst"]=fmt.Sprintf("Time from start to first byte: %v", time.Since(start).Seconds())
+			},
 		}
-		return resp, nil
+		proxyReq = proxyReq.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+		proxyReq.Close = true
+
+		start = time.Now()
+		if resp, err := http.DefaultTransport.RoundTrip(proxyReq); err != nil {
+			return nil, err
+		} else {
+			var total = time.Since(start).Seconds()
+			if total>criticalResponseTime {
+				log.Println("[W] too long response: ",total, req.Host, req.URL)
+				for k, v:=range logs {
+					log.Println("[W]", req.Host, k,":",v)
+				}
+				log.Println("")
+			}
+			return resp, nil
+		}
 	}
+}
+
+
+func httpProxy(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
+	handler := getDefaultHandler(service, query)
 
 	if middlewares != nil {
 		for _, filterName := range service.Plugins {
-			log.Println(filterName)
 			chainElement := handler
 			if plugin, ok := middlewares[filterName]; ok {
 				handler = func(req *http.Request) (*http.Response, error) {
-					_resp, err := plugin(req, chainElement)
-					for h, val := range _resp.Header {
-						_resp.Header[h] = val
+					if _resp, err := plugin(req, chainElement); err!=nil {
+						return _resp, err
+					} else if _resp!=nil {
+						return _resp, err
+					} else {
+						return nil, errors.New(fmt.Sprint("got empty response from: ", req.URL))
 					}
-
-					return _resp, err
 				}
 			} else {
 				log.Println(" cant load plugin ")
-
 			}
 		}
-	} else {
-		log.Println(" no middlewares detected")
 	}
+
 	if req == nil {
-		errors.New("nil request")
+		return errors.New("nil request")
 	}
 
 	resp, err := handler(req)
@@ -275,19 +322,20 @@ func httpProxy(w http.ResponseWriter, req *http.Request, service *Service, query
 	}
 
 	if resp.Header != nil {
-		for response_header, response_header_values := range resp.Header {
-			for _, response_header_value := range response_header_values {
-				w.Header().Add(response_header, response_header_value)
+		for responseHeader, responseHeaderValues := range resp.Header {
+			for _, responseHeaderValue := range responseHeaderValues {
+				w.Header().Add(responseHeader, responseHeaderValue)
 			}
 		}
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("err: ", err)
+		log.Println( err.Error())
         return err
 	} else {
-        w.Write(body)
+		defer  resp.Body.Close()
+		_, _ = w.Write(body)
 	}
 	return nil
 }
