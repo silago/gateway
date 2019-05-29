@@ -3,8 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	lib "gateway/lib"
-	"io"
+	"gateway/lib"
 	"log"
 	"net"
 	"net/http"
@@ -40,8 +39,8 @@ func LoadPlugin(path string) (MiddlewarePlugin, error) {
 	}
 	plugin, ok := plug.(MiddlewarePlugin)
 	if !ok {
-		fmt.Println("Could not cast to Middleware plugin")
-		errors.New("Could not cast to Middleware plugin")
+		//fmt.Println("could not cast to Middleware plugin")
+		return nil, errors.New("could not cast to Middleware plugin")
 	}
 	return plugin, nil
 }
@@ -51,8 +50,8 @@ func main() {
 		configPath string
 	)
 	port := ENV("PORT")
-	ssl_port := ENV("SSL_PORT")
-	middlewares := make(map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error))
+	sslPort := ENV("SSL_PORT")
+	middleware := make(map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error))
 	//      func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error))
 	if len(os.Args) != 2 {
 		if s, ok := os.LookupEnv("GATEWAY_CONFIG_FILE"); ok {
@@ -84,43 +83,44 @@ func main() {
 		}
 	}(config)
 
-	for plugin_name, plugin_path := range config.Middleware {
-		plugin, err := LoadPlugin(plugin_path)
+	for pluginName, pluginPath := range config.Middleware {
+		plugin, err := LoadPlugin(pluginPath)
 		if err == nil {
-			middlewares[plugin_name] = plugin.Init()
+			middleware[pluginName] = plugin.Init()
 		} else {
-			fmt.Println("cant load plugin", plugin_path)
+			fmt.Println("cant load plugin", pluginPath)
 			fmt.Println(err)
 		}
 	}
 
+	//log.Println("..")
 	for host, target := range config.PortForward {
 		listener, err := net.Listen("tcp", host)
+		defer listener.Close()
 		if err != nil {
 			log.Println(err.Error())
 		}
 
+		//log.Println("listening tcp at", host)
 		go func() {
 			for {
-				conn, err := listener.Accept()
-				defer conn.Close()
-				if err != nil {
-					log.Println(err)
+				if conn, err := listener.Accept(); err!=nil {
+					log.Println(err.Error())
+					continue
+				} else if client, err := net.Dial("tcp", target); err!=nil {
+					conn.Close()
+					log.Println(err.Error())
 					continue
 				} else {
-					log.Println("accepted")
-					client, _ := net.Dial("tcp", target)
-					defer client.Close()
 					go func() {
 						for {
 							inputBuffer := make([]byte, 256)
 							if n, e := client.Read(inputBuffer); e != nil {
-								if e == io.EOF {
-									return
-								}
+								_ = conn.Close()
+								return
 							} else {
 								message := string(inputBuffer[:n])
-								conn.Write([]byte(message))
+								_, _ = conn.Write([]byte(message))
 							}
 						}
 					}()
@@ -129,12 +129,11 @@ func main() {
 						for {
 							inputBuffer := make([]byte, 256)
 							if n, e := conn.Read(inputBuffer); e != nil {
-								if e == io.EOF {
-									return
-								}
+								_ = conn.Close()
+								return
 							} else {
 								message := string(inputBuffer[:n])
-								client.Write([]byte(message))
+								_, _ = client.Write([]byte(message))
 							}
 						}
 					}()
@@ -147,13 +146,11 @@ func main() {
 		w.Write([]byte("google-site-verification: google13dd0d8dae2fd927.html"))
 	})
 
-	http.HandleFunc("/", lib.New(config, middlewares))
+	http.HandleFunc("/", lib.New(config, middleware))
 	log.Println("listen http at ", port)
 	go func() {
-		log.Fatal(http.ListenAndServeTLS(":"+ssl_port, "server.crt", "server.key", nil))
+		log.Fatal(http.ListenAndServeTLS(":"+sslPort, "server.crt", "server.key", nil))
 	}()
 	log.Fatal(http.ListenAndServe(":"+port, nil))
-	//	log.Println("listen ssl at ", ssl_port)
-	for {
-	}
+	select {}
 }
