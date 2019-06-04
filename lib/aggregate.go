@@ -1,5 +1,6 @@
 package lib
 
+/*
 import (
 	//	"net/http"
 	"fmt"
@@ -57,3 +58,4 @@ func handleAggregate(w http.ResponseWriter, req *http.Request, pipes map[string]
 	w.Write([]byte(result.String()))
 	return nil
 }
+*/

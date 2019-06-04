@@ -1,16 +1,9 @@
 package lib
 
-import (
-	"github.com/gorilla/websocket"
-	"log"
-	"net"
-	"net/http"
-	"net/url"
-	"strings"
-)
-
+/*
 type Protocols struct {
 }
+
 
 func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
 	type msg struct {
@@ -113,3 +106,4 @@ func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Servi
 		return err
 	}
 }
+*/

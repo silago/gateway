@@ -1,16 +1,6 @@
 package lib
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	//"strings"
-	//"errors"
-	"fmt"
-)
-
+/*
 type Pipeline struct {
 	Index int
 	Pipes []Pipe
@@ -26,7 +16,6 @@ func (p *Pipeline) BuildProxyPipe(writer http.ResponseWriter, c *Config, req *ht
 	}
 
 	currentPipe := p.Pipes[p.Index]
-	fmt.Println("response for ", currentPipe.Service)
 	(&httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			r.URL.Scheme = c.Scheme //"http"
@@ -83,3 +72,4 @@ func generateResponseMap(pipe Pipe, req *http.Request, res *http.Response) map[s
 	}
 	return result
 }
+*/

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/Jeffail/gabs"
@@ -14,11 +15,9 @@ import (
 	b64 "encoding/base64"
 )
 
-const passw = "FOOBAR2451"
-const AUTH_TOKEN_HEADER = "X-Auth-Token"
-
-type auth struct {
-}
+const authTokenHeader = "X-Auth-Token"
+var password = os.Getenv("AUTH_PLUGIN_PASSWORD")
+type auth struct {}
 
 func xor(input, key string) (output string) {
 	for i := 0; i < len(input); i++ {
@@ -44,9 +43,9 @@ func decrypt(data string, passphrase string) string {
 func (s auth) generateToken(userId string) string {
 	guid := xid.New()
 	obj := gabs.New()
-	obj.Set(userId, "id")
-	obj.Set(guid, "guid")
-	return string(encrypt(obj.String(), passw))
+	_, _ = obj.Set(userId, "id")
+	_, _ = obj.Set(guid, "guid")
+	return string(encrypt(obj.String(), password))
 }
 
 func (s auth) after(response *http.Response) (*http.Response, error) {
@@ -59,14 +58,14 @@ func (s auth) after(response *http.Response) (*http.Response, error) {
 
 	obj, err := gabs.ParseJSON(body)
 	if err != nil {
-		response.Body = ioutil.NopCloser(strings.NewReader(fmt.Sprintf("", err)))
+		response.Body = ioutil.NopCloser(strings.NewReader(err.Error()))
 		return response, nil
 	}
 
 	value := obj.Path("id").String()
 	if value != "" {
 		token := s.generateToken(value)
-		response.Header.Set(AUTH_TOKEN_HEADER, token)
+		response.Header.Set(authTokenHeader, token)
 		fmt.Println("token been set")
 	} else {
 		fmt.Println("could not parse id in responce: ", obj.String())
@@ -78,10 +77,13 @@ func (s auth) after(response *http.Response) (*http.Response, error) {
 }
 
 func (s auth) Init() func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error) {
+	if password == "" {
+		panic("AUTH_PLUGIN_PASSWORD is not set")
+	}
 	return func(request *http.Request, wrapped func(*http.Request) (*http.Response, error)) (*http.Response, error) {
 		response, _ := wrapped(request)
 		return s.after(response)
 	}
 }
-
+/* Plugin: generates auth-token and adds it to the headers */
 var Plugin auth
