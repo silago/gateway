@@ -1,4 +1,5 @@
 package lib
+/*
 
 import (
 	"fmt"
@@ -65,3 +66,4 @@ func handleChain(w http.ResponseWriter, req *http.Request, pipes []Chain) error 
 	w.Write([]byte(result.String()))
 	return nil
 }
+*/

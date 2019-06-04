@@ -5,17 +5,18 @@ import (
 	"io/ioutil"
 )
 
-// Config is a struct that holds the configuration of the gateway.
+// Service is a struct that holds the configuration of the gateway.
 type Service struct {
 	Service   string
 	Protocol  string
 	Scheme    string
 	Plugins   []string
-	Aggregate map[string]AggregatePipe
-	Chain     []Chain
-	Pipes     []Pipe
+	//Aggregate map[string]AggregatePipe
+	//Chain     []Chain
+	//Pipes     []Pipe
 }
 
+/*
 type AggregatePipe struct {
 	Service  string
 	Endpoint string
@@ -32,7 +33,8 @@ type Pipe struct {
 	Endpoint string
 	Map      map[string]string
 }
-
+*/
+/* Config: json config declaration*/
 type Config struct {
 	Version          string             `json:"version"`
 	Scheme           string             `json:"scheme"`

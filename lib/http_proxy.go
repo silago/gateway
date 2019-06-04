@@ -14,7 +14,7 @@ import (
 
 const criticalResponseTime float64 = 0.4
 
-func GetDefaultHandler(service *Service, query *string) func(req *http.Request) (*http.Response, error) {
+func getDefaultHandler(service *Service, query *string) func(req *http.Request) (*http.Response, error) {
 	return func(req *http.Request) (response *http.Response, e error) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
@@ -64,25 +64,26 @@ func GetDefaultHandler(service *Service, query *string) func(req *http.Request) 
 		proxyReq.Close = true
 
 		start = time.Now()
-		if resp, err := http.DefaultTransport.RoundTrip(proxyReq); err != nil {
+		resp, err := http.DefaultTransport.RoundTrip(proxyReq);
+		if err != nil {
 			return nil, err
-		} else {
-			var total = time.Since(start).Seconds()
-			if total > criticalResponseTime {
-				log.Println("[W] too long response: ", total, req.Host, req.URL)
-				for k, v := range logs {
-					log.Println("[W]", req.Host, k, ":", v)
-				}
-				log.Println("")
-			}
-			return resp, nil
 		}
+		var total = time.Since(start).Seconds()
+		if total > criticalResponseTime {
+			log.Println("[W] too long response: ", total, req.Host, req.URL)
+			for k, v := range logs {
+				log.Println("[W]", req.Host, k, ":", v)
+			}
+			log.Println("")
+		}
+		return resp, nil
 	}
 }
 
+/* HttpProxyHandler forwards requests and responses  from  client to target service by http */
 func HttpProxyHandler(w http.ResponseWriter, req *http.Request, service *Service, query *string,
 	middlewares map[string]PluginInterface) error {
-	handler := GetDefaultHandler(service, query)
+	handler := getDefaultHandler(service, query)
 	if middlewares != nil {
 		for _, filterName := range service.Plugins {
 			chainElement := handler
@@ -124,9 +125,9 @@ func HttpProxyHandler(w http.ResponseWriter, req *http.Request, service *Service
 	if err != nil {
 		log.Println(err.Error())
 		return err
-	} else {
-		defer resp.Body.Close()
-		_, _ = w.Write(body)
 	}
+
+	defer resp.Body.Close()
+	_, _ = w.Write(body)
 	return nil
 }

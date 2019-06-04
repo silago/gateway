@@ -6,13 +6,15 @@ import (
 	"plugin"
 )
 
+/*PluginInterface is a common interface for Init() plugin method */
 type PluginInterface func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
 
+//*MiddleWarePlugin is an interface for plugin holder */
 type MiddlewarePlugin interface {
-	Init() PluginInterface //func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
-	//Init() func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
+	Init() PluginInterface
 }
 
+/*LoadPlugin is a plugin loader */
 func LoadPlugin(path string) (MiddlewarePlugin, error) {
 	mod, err := plugin.Open(path)
 	if err != nil {
