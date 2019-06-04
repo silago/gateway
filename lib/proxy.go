@@ -13,7 +13,6 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-
 //func tryFallback(c *Config, r *http.Request) (string, string, bool) {
 //	if c.Version != "" && c.FallbackRule != "" {
 //		return c.FallbackRule, r.URL.Path, true
