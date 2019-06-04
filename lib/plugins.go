@@ -9,7 +9,7 @@ import (
 type PluginInterface func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
 
 type MiddlewarePlugin interface {
-	Init() PluginInterface//func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
+	Init() PluginInterface //func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
 	//Init() func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)
 }
 
