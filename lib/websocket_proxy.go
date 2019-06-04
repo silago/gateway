@@ -9,11 +9,7 @@ import (
 	"strings"
 )
 
-type Protocols struct {
-}
-
-
-func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
+func WebsocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]PluginInterface) error {
 	type msg struct {
 		Message []byte
 		Type    int
@@ -55,9 +51,10 @@ func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Servi
 			}
 
 			defer func() {
-				conn.Close()
-				service_conn.Close()
+				_ = conn.Close()
+				_ = service_conn.Close()
 			}()
+
 			errorChan := make(chan error)
 			clientChan := make(chan msg)
 			serviceChan := make(chan msg)
@@ -93,17 +90,17 @@ func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Servi
 			for {
 				select {
 				case message := <-clientChan:
-					write_error := conn.WriteMessage(message.Type, message.Message)
-					if write_error != nil {
-						errorChan <- write_error
+					writeError := conn.WriteMessage(message.Type, message.Message)
+					if writeError != nil {
+						errorChan <- writeError
 					}
 				case message := <-serviceChan:
-					write_error := service_conn.WriteMessage(message.Type, message.Message)
-					if write_error != nil {
-						errorChan <- write_error
+					writeError := service_conn.WriteMessage(message.Type, message.Message)
+					if writeError != nil {
+						errorChan <- writeError
 					}
 				case err := <-errorChan:
-					log.Println("ws error: ", err)
+					log.Println(err.Error())
 					return
 				}
 			}
@@ -114,6 +111,3 @@ func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Servi
 		return err
 	}
 }
-
-
-
