@@ -13,7 +13,7 @@ import (
 )
 
 type Gateway struct {
-	config *Config
+	config     *Config
 	middleware map[string]PluginInterface
 	configPath string
 }
@@ -25,13 +25,13 @@ func (gw *Gateway) checkIsConfigReady() {
 }
 
 func (gw *Gateway) StartReloadOnSignal(sig syscall.Signal) {
-	sigChan :=make(chan os.Signal, 1)
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, sig)
 	go func() {
-		for sig:=range sigChan {
+		for sig := range sigChan {
 			log.Printf("got {%s}  signal. reloading config ", sig)
 			if newConfig, err := LoadConfig(gw.configPath); err == nil {
-				*gw.config=*newConfig
+				*gw.config = *newConfig
 			} else {
 				log.Printf(err.Error())
 				os.Exit(1)
@@ -41,12 +41,10 @@ func (gw *Gateway) StartReloadOnSignal(sig syscall.Signal) {
 	return
 }
 
-
 //func (gw *Gateway) Start() {
 //	gw.checkIsConfigReady()
 //	http.HandleFunc("/", gw.GetHandler())
 //}
-
 
 func (gw *Gateway) loadMiddleware() {
 	gw.checkIsConfigReady()
@@ -70,10 +68,10 @@ func (gw *Gateway) startTcpPortForwarding() {
 
 		go func() {
 			for {
-				if conn, err := listener.Accept(); err!=nil {
+				if conn, err := listener.Accept(); err != nil {
 					log.Println(err.Error())
 					continue
-				} else if client, err := net.Dial("tcp", target); err!=nil {
+				} else if client, err := net.Dial("tcp", target); err != nil {
 					log.Println(err.Error())
 					conn.Close()
 					continue
@@ -109,10 +107,9 @@ func (gw *Gateway) startTcpPortForwarding() {
 	}
 }
 
-
 func InitGateway(configPath string) *Gateway {
-	var gw = &Gateway{configPath:configPath}
-	if config, err:= LoadConfig(configPath); err!=nil {
+	var gw = &Gateway{configPath: configPath}
+	if config, err := LoadConfig(configPath); err != nil {
 		panic(err)
 	} else {
 		gw.config = config
@@ -120,18 +117,18 @@ func InitGateway(configPath string) *Gateway {
 	return gw
 }
 
-func (gw  *Gateway) GetHandler()  http.HandlerFunc { //(w http.ResponseWriter, req *http.Request) {
+func (gw *Gateway) GetHandler() http.HandlerFunc { //(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		service, query, route_error := gw.getTargetService(req)
 		if route_error == nil {
 			switch proto := service.Protocol; proto {
 			case "ws":
-				if err :=  WebsocketProxyHandler(w, req, service, query, gw.middleware); err!=nil {
+				if err := WebsocketProxyHandler(w, req, service, query, gw.middleware); err != nil {
 					log.Println("[error][websocket]:", err.Error())
 					w.Write([]byte(err.Error()))
 				}
 			default:
-				if err := HttpProxyHandler(w, req, service, query, gw.middleware); err!=nil {
+				if err := HttpProxyHandler(w, req, service, query, gw.middleware); err != nil {
 					log.Println("[error][proxy]: ", err.Error())
 					w.Write([]byte(err.Error()))
 				}
@@ -164,7 +161,6 @@ func (gw  *Gateway) GetHandler()  http.HandlerFunc { //(w http.ResponseWriter, r
 //	}
 //}
 
-
 // Find service matches by the url pattern
 // returns url, service, error
 func (gw *Gateway) getTargetService(r *http.Request) (*Service, *string, error) {
@@ -190,4 +186,3 @@ func (gw *Gateway) getTargetService(r *http.Request) (*Service, *string, error) 
 	}
 	return nil, nil, errors.New("{\"error\":\"route not found\"}")
 }
-
