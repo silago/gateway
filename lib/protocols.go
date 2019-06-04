@@ -12,7 +12,6 @@ import (
 type Protocols struct {
 }
 
-
 func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Service, query *string, middlewares map[string]func(*http.Request, func(*http.Request) (*http.Response, error)) (*http.Response, error)) error {
 	type msg struct {
 		Message []byte
@@ -114,6 +113,3 @@ func SocketProxyHandler(w http.ResponseWriter, req *http.Request, service *Servi
 		return err
 	}
 }
-
-
-
