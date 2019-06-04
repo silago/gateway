@@ -15,7 +15,7 @@ func main() {
 	var (
 		configPath string
 	)
-	port    := ENV("PORT")
+	port := ENV("PORT")
 	sslPort := ENV("SSL_PORT")
 	if len(os.Args) != 2 {
 		if s, ok := os.LookupEnv("GATEWAY_CONFIG_FILE"); ok {
@@ -27,13 +27,11 @@ func main() {
 		configPath = os.Args[1]
 	}
 
-
 	//if config, err := lib.LoadConfig(configPath); err!=nil {
 	//	log.Fatal(err)
 	//} else {
 
-
-	gateway:=lib.InitGateway(configPath)
+	gateway := lib.InitGateway(configPath)
 	gateway.StartReloadOnSignal(syscall.SIGHUP)
 	http.HandleFunc("/", gateway.GetHandler())
 	//lib.InitGateway(configPath).Start()

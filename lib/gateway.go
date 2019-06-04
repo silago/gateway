@@ -12,6 +12,7 @@ import (
 	"syscall"
 )
 
+/* Gateway Api reverse proxy  that handles tcp socket, http and websocket protocols*/
 type Gateway struct {
 	config     *Config
 	middleware map[string]PluginInterface
@@ -24,6 +25,7 @@ func (gw *Gateway) checkIsConfigReady() {
 	}
 }
 
+/* StartReloadSignal waits for signal from os an rereads config */
 func (gw *Gateway) StartReloadOnSignal(sig syscall.Signal) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, sig)
@@ -60,19 +62,19 @@ func (gw *Gateway) loadMiddleware() {
 
 func (gw *Gateway) startTcpPortForwarding() {
 	for host, target := range gw.config.PortForward {
-		listener, err := net.Listen("tcp", host)
+		listener, listenError := net.Listen("tcp", host)
 		defer listener.Close()
-		if err != nil {
-			log.Println(err.Error())
+		if listenError != nil {
+			log.Println(listenError.Error())
 		}
-
+		targetServer:=target
 		go func() {
 			for {
-				if conn, err := listener.Accept(); err != nil {
-					log.Println(err.Error())
+				if conn, acceptError := listener.Accept(); acceptError != nil {
+					log.Println(acceptError.Error())
 					continue
-				} else if client, err := net.Dial("tcp", target); err != nil {
-					log.Println(err.Error())
+				} else if client, dialError := net.Dial("tcp", targetServer); dialError != nil {
+					log.Println(dialError.Error())
 					conn.Close()
 					continue
 				} else {
@@ -106,6 +108,7 @@ func (gw *Gateway) startTcpPortForwarding() {
 		}()
 	}
 }
+
 
 func InitGateway(configPath string) *Gateway {
 	var gw = &Gateway{configPath: configPath}
@@ -186,3 +189,4 @@ func (gw *Gateway) getTargetService(r *http.Request) (*Service, *string, error) 
 	}
 	return nil, nil, errors.New("{\"error\":\"route not found\"}")
 }
+
