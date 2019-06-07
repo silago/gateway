@@ -60,54 +60,66 @@ func (gw *Gateway) loadMiddleware() {
 	}
 }
 
-func (gw *Gateway) startTcpPortForwarding() {
+func (gw *Gateway) StartTcpPortForwarding() {
 	for host, target := range gw.config.PortForward {
-		listener, listenError := net.Listen("tcp", host)
+		//listener, listenError := net.Listen("tcp", host)
+		var addr , resolveError = net.ResolveTCPAddr("tcp",host)
+		if resolveError!=nil {
+			panic(resolveError.Error())
+		}
+		listener, listenError := net.ListenTCP("tcp", addr)
 		defer listener.Close()
 		if listenError != nil {
 			log.Println(listenError.Error())
 		}
-		targetServer:=target
+		targetServer, _:=net.ResolveTCPAddr("tcp",target)
 		go func() {
 			for {
-				if conn, acceptError := listener.Accept(); acceptError != nil {
-					log.Println(acceptError.Error())
+				conn, acceptError := listener.Accept()
+				if acceptError != nil {
+					log.Println(":::", acceptError.Error())
 					continue
-				} else if client, dialError := net.Dial("tcp", targetServer); dialError != nil {
+				}
+
+				client, dialError := net.DialTCP("tcp", nil, targetServer);
+				if dialError != nil {
 					log.Println(dialError.Error())
 					conn.Close()
 					continue
 				} else {
-					go func() {
-						for {
-							inputBuffer := make([]byte, 256)
-							if n, e := client.Read(inputBuffer); e != nil {
-								_ = conn.Close()
-								return
-							} else {
-								message := string(inputBuffer[:n])
-								_, _ = conn.Write([]byte(message))
-							}
-						}
-					}()
-
-					go func() {
-						for {
-							inputBuffer := make([]byte, 256)
-							if n, e := conn.Read(inputBuffer); e != nil {
-								_ = conn.Close()
-								return
-							} else {
-								message := string(inputBuffer[:n])
-								_, _ = client.Write([]byte(message))
-							}
-						}
-					}()
 				}
+
+				go func() {
+					for {
+						defer  client.Close()
+						inputBuffer := make([]byte, 256)
+						if n, e := client.Read(inputBuffer); e != nil {
+							_ = conn.Close()
+							return
+						} else {
+							message := string(inputBuffer[:n])
+							_, _ = conn.Write([]byte(message))
+						}
+					}
+				}()
+
+				go func() {
+					defer conn.Close()
+					for {
+						inputBuffer := make([]byte, 256)
+						if n, e := conn.Read(inputBuffer); e != nil {
+							return
+						} else {
+							message := string(inputBuffer[:n])
+							_, _ = client.Write([]byte(message))
+						}
+					}
+				}()
 			}
 		}()
+		}
+		select {}
 	}
-}
 
 
 func InitGateway(configPath string) *Gateway {

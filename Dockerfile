@@ -1,14 +1,26 @@
-FROM golang:1.10
-RUN mkdir /go/src/gateway -p
-ADD . /go/src/gateway/
-WORKDIR /go/src/gateway 
-#RUN go get "gateway/lib"
-#RUN go get "github.com/rs/xid"
-RUN go get "github.com/Jeffail/gabs"
-RUN go get github.com/gorilla/websocket
-#RUN cp -r ./lib /go/src/gateway/lib 
-#RUN go get "github.com/jinzhu/gorm"
-#RUN go get "github.com/go-sql-driver/mysql"
-RUN go build -o pool-api-gateway .
+#FROM golang:1.10
+FROM golang:1.11.5-alpine as builder
+RUN /sbin/apk update && /sbin/apk add --no-cache git gcc bind-dev musl-dev
+ADD . /app/
+WORKDIR /app/
+RUN go mod download
+RUN go build -o /app/app .
+#WORKDIR /app/plugins/timelog/ 
+#RUN go build -buildmode=plugin -o /app/plugins/timelog/timelog-plugin.so 
+run find ./ -name "*.go" -delete
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/plugins ./app/plugins
+COPY --from=builder /app/app ./app/app
+COPY --from=builder /app/pool.config.json ./app/pool.config.json
+COPY --from=builder /app/server.crt ./app/server.crt
+COPY --from=builder /app/server.key ./app/server.key
+COPY --from=builder /app/pool.config.json ./app/pool.config.json
+RUN echo "net.ipv4.tcp_tw_reuse = 1" >> /etc/sysctl.conf
+RUN echo "net.ipv4.tcp_tw_recycle = 1" >> /etc/sysctl.conf
+RUN echo "net.ipv4.ip_local_port_range = 50000 " >> /etc/sysctl.conf
 
-ENTRYPOINT ["/go/src/gateway/pool-api-gateway", "./pool.config.json"]
+
+WORKDIR /root/app/
+run ls
+ENTRYPOINT ["./app", "pool.config.json"]
