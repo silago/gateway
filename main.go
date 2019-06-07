@@ -33,6 +33,7 @@ func main() {
 
 	gateway := lib.InitGateway(configPath)
 	gateway.StartReloadOnSignal(syscall.SIGHUP)
+	go gateway.StartTcpPortForwarding()
 	http.HandleFunc("/", gateway.GetHandler())
 	//lib.InitGateway(configPath).Start()
 	http.HandleFunc("/google13dd0d8dae2fd927.html", func(w http.ResponseWriter, r *http.Request) {
