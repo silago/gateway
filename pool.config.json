@@ -1,16 +1,37 @@
 {
   "version": "v1",
   "port": "8084",
+  "middleware":{
+  },
   "scheme":"http",
   "port_forward": {
     ":8010": "msghub.default.svc.cluster.local:9092"
   },
   "rules": {
-    "/9.0/":{
+    "/ok/":{
+      "service":"php-pool-ok.default.svc.cluster.local",
+	  "plugins":[],
+      "protocol": "",
+      "scheme": "http"
+    },
+    "/prod/":{
+      "service":"php-pool-prod1.default.svc.cluster.local",
+      "plugins":[],
+      "protocol": "",
+      "scheme": "http"
+    },
+    "/prod2/":{
       "service":"php-pool-production.default.svc.cluster.local",
       "plugins":[],
       "protocol": "",
       "scheme": "http"
+    },
+
+    "/vk-dev/":{
+        "service":"php-pool-dev-vk.default.svc.cluster.local",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
     },
     "/rc-game/":{
       "service":"php-pool-rc.default.svc.cluster.local",
@@ -36,7 +57,13 @@
         "protocol": "ws",
         "scheme": ""
     },
-    "/game":{
+    "/dev2":{
+        "service":"php-pool-dev10.default.svc.cluster.local",
+        "plugins":[],
+        "protocol": "",
+        "scheme": "http"
+    },
+    "/dev1":{
         "service":"php-pool.default.svc.cluster.local",
         "plugins":[],
         "protocol": "",
@@ -48,15 +75,9 @@
         "protocol": "",
         "scheme": "http"
     },
-    "/adds":{
+    "/payments-proxy":{
         "protocol":"http",
-        "service":"poolq-appodeal",
-        "plugins":[],
-        "scheme": "http",
-        "protocol": ""
-    },
-    "/appodeal":{
-        "service":"poolq-appodeal",
+        "service":"adv-proxy.default.svc.cluster.local",
         "plugins":[],
         "scheme": "http",
         "protocol": ""
