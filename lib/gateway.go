@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -60,9 +61,52 @@ func (gw *Gateway) loadMiddleware() {
 	}
 }
 
+
+func handleTcpProxyConnection(conn net.Conn, targetServer *net.TCPAddr) {
+	defer conn.Close()
+	client, dialError := net.DialTCP("tcp", nil, targetServer);
+	if dialError != nil {
+		log.Println(dialError.Error())
+		return
+	}
+	defer  client.Close()
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for {
+			inputBuffer := make([]byte, 256)
+			if n, e := client.Read(inputBuffer); e != nil {
+				return
+			} else {
+				message := string(inputBuffer[:n])
+				if _, e = conn.Write([]byte(message));e!=nil {
+					return
+				}
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for {
+			inputBuffer := make([]byte, 256)
+			if n, e := conn.Read(inputBuffer); e != nil {
+				return
+			} else {
+				message := string(inputBuffer[:n])
+				if _, e = client.Write([]byte(message)); e!=nil {
+					return
+				}
+			}
+		}
+	}()
+	wg.Wait()
+}
+
 func (gw *Gateway) StartTcpPortForwarding() {
 	for host, target := range gw.config.PortForward {
-		//listener, listenError := net.Listen("tcp", host)
 		var addr , resolveError = net.ResolveTCPAddr("tcp",host)
 		if resolveError!=nil {
 			panic(resolveError.Error())
@@ -71,50 +115,19 @@ func (gw *Gateway) StartTcpPortForwarding() {
 		defer listener.Close()
 		if listenError != nil {
 			log.Println(listenError.Error())
+			return
 		}
+
 		targetServer, _:=net.ResolveTCPAddr("tcp",target)
 		go func() {
 			for {
 				conn, acceptError := listener.Accept()
 				if acceptError != nil {
-					log.Println(":::", acceptError.Error())
+					log.Println(acceptError.Error())
+					_ = conn.Close()
 					continue
 				}
-
-				client, dialError := net.DialTCP("tcp", nil, targetServer);
-				if dialError != nil {
-					log.Println(dialError.Error())
-					conn.Close()
-					continue
-				} else {
-				}
-
-				go func() {
-					for {
-						defer  client.Close()
-						inputBuffer := make([]byte, 256)
-						if n, e := client.Read(inputBuffer); e != nil {
-							_ = conn.Close()
-							return
-						} else {
-							message := string(inputBuffer[:n])
-							_, _ = conn.Write([]byte(message))
-						}
-					}
-				}()
-
-				go func() {
-					defer conn.Close()
-					for {
-						inputBuffer := make([]byte, 256)
-						if n, e := conn.Read(inputBuffer); e != nil {
-							return
-						} else {
-							message := string(inputBuffer[:n])
-							_, _ = client.Write([]byte(message))
-						}
-					}
-				}()
+				go handleTcpProxyConnection(conn,targetServer)
 			}
 		}()
 		}
@@ -144,7 +157,6 @@ func (gw *Gateway) GetHandler() http.HandlerFunc { //(w http.ResponseWriter, req
 				}
 			default:
 				if err := HttpProxyHandler(w, req, service, query, gw.middleware); err != nil {
-					log.Println("[error][proxy]: ", err.Error())
 					w.Write([]byte(err.Error()))
 				}
 			}

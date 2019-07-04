@@ -2,17 +2,13 @@ package lib
 
 import (
 	"bytes"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"net/http/httptrace"
-	"time"
 )
 
-const criticalResponseTime float64 = 0.4
+//const criticalResponseTime float64 = 0.4
 
 func getDefaultHandler(service *Service, query *string) func(req *http.Request) (*http.Response, error) {
 	return func(req *http.Request) (response *http.Response, e error) {
@@ -37,9 +33,11 @@ func getDefaultHandler(service *Service, query *string) func(req *http.Request) 
 		//httpClient := http.Client{}
 
 		//resp, err := httpClient.Do(proxyReq)
-
+		/*
 		var start, connect, dns, tlsHandshake time.Time
+
 		var logs map[string]string = make(map[string]string)
+
 
 		trace := &httptrace.ClientTrace{
 			DNSStart: func(dsi httptrace.DNSStartInfo) { dns = time.Now() },
@@ -61,13 +59,16 @@ func getDefaultHandler(service *Service, query *string) func(req *http.Request) 
 			},
 		}
 		proxyReq = proxyReq.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+		*/
+		proxyReq = proxyReq.WithContext(req.Context())
 		proxyReq.Close = true
 
-		start = time.Now()
+		//start = time.Now()
 		resp, err := http.DefaultTransport.RoundTrip(proxyReq);
 		if err != nil {
 			return nil, err
 		}
+		/*
 		var total = time.Since(start).Seconds()
 		if total > criticalResponseTime {
 			log.Println("[W] too long response: ", total, req.Host, req.URL)
@@ -76,6 +77,7 @@ func getDefaultHandler(service *Service, query *string) func(req *http.Request) 
 			}
 			log.Println("")
 		}
+		*/
 		return resp, nil
 	}
 }
@@ -95,17 +97,17 @@ func HttpProxyHandler(w http.ResponseWriter, req *http.Request, service *Service
 					} else if _resp != nil {
 						return _resp, err
 					} else {
-						return nil, errors.New(fmt.Sprint("got empty response from: ", req.URL))
+						return nil, errors.New(fmt.Sprint("got nil response from: ", req.URL))
 					}
 				}
-			} else {
-				log.Println(" cant load plugin ")
+			//} else {
+			//	log.Println(" cant load plugin ")
 			}
 		}
 	}
 
 	if req == nil {
-		return errors.New("nil request")
+		return errors.New("request data is nil")
 	}
 
 	resp, err := handler(req)
@@ -123,7 +125,7 @@ func HttpProxyHandler(w http.ResponseWriter, req *http.Request, service *Service
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err.Error())
+		//log.Println(err.Error())
 		return err
 	}
 
