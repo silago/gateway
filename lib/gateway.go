@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 /* Gateway Api reverse proxy  that handles tcp socket, http and websocket protocols*/
@@ -63,46 +64,60 @@ func (gw *Gateway) loadMiddleware() {
 
 
 func handleTcpProxyConnection(conn net.Conn, targetServer *net.TCPAddr) {
-	defer conn.Close()
 	client, dialError := net.DialTCP("tcp", nil, targetServer);
 	if dialError != nil {
+		_ = conn.Close()
 		log.Println(dialError.Error())
 		return
 	}
-	defer  client.Close()
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
-		defer wg.Done()
-		for {
-			inputBuffer := make([]byte, 256)
-			if n, e := client.Read(inputBuffer); e != nil {
-				return
-			} else {
-				message := string(inputBuffer[:n])
-				if _, e = conn.Write([]byte(message));e!=nil {
+			defer wg.Done()
+			defer client.Close()
+			defer conn.Close()
+
+			for {
+				inputBuffer := make([]byte, 256)
+				_ = client.SetReadDeadline(time.Now().Add(1000 * time.Millisecond))
+				n, e := client.Read(inputBuffer);
+				if err, ok := e.(net.Error); ok && err.Timeout() {
+					continue
+				}
+				if e==nil {
+					if _, e = conn.Write([]byte(string(inputBuffer[:n]))); e !=nil {
+						return
+					}
+				} else {
 					return
 				}
-			}
 		}
 	}()
 
 	go func() {
-		defer wg.Done()
-		for {
-			inputBuffer := make([]byte, 256)
-			if n, e := conn.Read(inputBuffer); e != nil {
-				return
-			} else {
-				message := string(inputBuffer[:n])
-				if _, e = client.Write([]byte(message)); e!=nil {
+			defer wg.Done()
+			defer client.Close()
+			defer conn.Close()
+			for {
+				inputBuffer := make([]byte, 256)
+				_ = conn.SetReadDeadline(time.Now().Add(1000 * time.Millisecond))
+				n, e := conn.Read(inputBuffer)
+				if err, ok := e.(net.Error); ok && err.Timeout() {
+					continue
+				}
+				if e == nil  {
+					if _, e = client.Write([]byte(string(inputBuffer[:n]))); e != nil {
+						return
+					}
+				} else {
 					return
 				}
-			}
+
 		}
 	}()
 	wg.Wait()
+	log.Println("tcp proxy closed")
 }
 
 func (gw *Gateway) StartTcpPortForwarding() {
